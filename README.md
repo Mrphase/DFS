@@ -1,7 +1,7 @@
 # DFS
 
 
-## prepare data
+## data format
 ```
 0 1
 0 4 
