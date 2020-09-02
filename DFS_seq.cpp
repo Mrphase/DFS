@@ -7,7 +7,7 @@
 #include <stack>
 #include <set>
 #include <bitset>
-#include"MyStack.h"
+#include"MyStack.h" /////static stack
 using namespace std;
 using namespace std::chrono;
 #define MAX(a, b) ((a) > (b) ? (a) : (b) )
@@ -16,7 +16,7 @@ using namespace std::chrono;
 #define Gray 1
 #define Black 2
 #define INF (1<<31)-1 
-#define bitMapSize 10000000
+#define bitMapSize 100000
 #define StackSize 1000/// even in large social  network(Twitter), the dinamiter of graph is only 9, 100 should be enouth
 //defind node 
 typedef struct Vertex {
@@ -115,7 +115,7 @@ void initialize_vertex(Graph& g) {
 	cout << "finish\n";
 }
 
-Graph load_graph(const char* filename) {
+Graph load_graph(const char* filename, bool isDirG) {
 
 	std::ifstream data(filename, std::ios_base::in);
 	// email-Eu-core.txt  toy.dat test-1024.txt Wiki-Vote.txt test-5.5kEdges.txt
@@ -310,7 +310,7 @@ void DFS_visit(Graph& g, Vertex start) {
 
 }
 
-void DFS_visit_continue_bitmap(Graph& g, Vertex start, bitset<bitMapSize>& color_bit) {  //7/13/2020 not use new vector
+void DFS_visit_continue_bitmap(Graph& g, Vertex start, bitset<bitMapSize>& color_bit) {  //7/13/2020 not use new vector 
 	int startId = start.value;
 	if (!color_bit.test(start.value)) //// if node i's color not 1 : !color_bit.test(i)
 	{
@@ -332,25 +332,6 @@ void DFS_visit_continue_bitmap(Graph& g, Vertex start, bitset<bitMapSize>& color
 		//int currColor = g.vertexs[currValue].color;
 		int currColor = color_bit.test(currValue) ? Gray : White;/// if ture, currcolor ==1(gray)
 		stack.pop();
-
-        
-		if (g.vertexs[currValue].neighbors.size()==0)
-		{
-			// g.vertexs[currValue].color = Black;
-            color_bit.set(currValue,1);
-			continue;
-		}
-		if (g.vertexs[currValue].neighbors.size() == 1)
-		{
-			//int oneneighborValue = g.vertexs[currValue].neighbors[0];
-			// g.vertexs[currValue].color = Black;
-            color_bit.set(currValue,1);
-			stack.push(g.vertexs[currValue].neighbors[0]);
-			continue;
-		}
-
-
-        
 
 		for (int i = 0; i < g.vertexs[currValue].neighbors.size(); i++)
 		{
@@ -384,7 +365,7 @@ void DFS_visit_continue_bitmap(Graph& g, Vertex start, bitset<bitMapSize>& color
 }
 
 
-void DFS_visit_continue_removeSTLstack(Graph& g, Vertex start) {  //   //7/14/2020 use static stack instead of STL Stack is my, stack is STL
+void DFS_visit_continue_removeSTLstack(Graph& g, Vertex start) {  //   //7/14/2020 use static stack instead of STL Stack is my, stack is STL other is same as DFS_visit_continue
 	Stack<int> stack(1000);
 	if (start.color == White)
 	{
@@ -488,6 +469,60 @@ void DFS_visit_removeGraph(int** Adjacency, int start, int& NumDiscover) {  //  
 	}
 }
 
+void DFS_visit_removeGraph_colormap(int** Adjacency, int* colormap, int start, int& NumDiscover) {  //   //7/15/2020 removeGraph from DFS_visit_continue_removeSTLstack  use indivusal int* to store color
+	Stack<int> stack(1000);
+
+	if (colormap[start] == White)
+	{
+		NumDiscover++;
+	}
+	if (colormap[start] == Black)
+	{
+		return;
+	}
+
+	colormap[start] = Gray;
+	stack.push(start);
+	while (!stack.isEmpty())
+	{
+		int currValue = 0;
+		stack.pop(&currValue);
+		int currColor = colormap[start];
+
+		///////////////////////////////////////// ///////////////////////////////////////// TODO pop and push has problem
+//cout << currValue<< "poped, stack.size() " << stack.size() << endl;
+//cout << " at: " << currValue;
+		if (Adjacency[currValue][1] == 0)
+		{
+			continue;
+		}
+		for (int i = 2; i < Adjacency[currValue][1] + 2; i++)
+		{
+			//Vertex u = g.vertexs[neighbors[i]];
+			int Uvalue = Adjacency[currValue][i];
+			int Ucolor = colormap[Uvalue];
+			//int Uvalue = g.vertexs[g.vertexs[currValue].neighbors[i]].value;
+			//if (i == neighbors.size() - 1 && u.color == Gray)                ///////////////////////////////////////// never  called on toy graph
+			if (i == Adjacency[currValue][1] - 1 && Ucolor == Gray)
+			{
+				//g.vertexs[currValue].color = Black;
+				colormap[currValue] = Black;
+				//cout << " Black: " << currValue;              /////////////////////////////////////////
+			}
+			if (Ucolor == White)
+			{
+				//cout << " discover: " << Uvalue;                  /////////////////////////////////////////
+				//Ucolor = Gray;
+				//set_color(g, u, 1);
+				colormap[Uvalue] = Gray;
+				stack.push(Uvalue);
+				NumDiscover++;
+				continue; // if continue search all neighbors, became  DFS break
+			}
+		}
+		//cout << "\n";                                  /////////////////////////////////////////
+	}
+}
 void DFS_test(Graph& g, int start) {
 	for (int i = start; i < g.nVertexs; i++)
 	{
@@ -551,7 +586,7 @@ void DFS_optimize3_bitmap(Graph& g, int start, bitset<bitMapSize>& color_bit) { 
 			DFS_visit_continue_bitmap(g, g.vertexs[i], color_bit);
 		}
 
-		if (color_bit.count() >= g.nVertexs)
+		if (g.NumDiscover >= g.nVertexs)
 		{
 			return;
 		}
@@ -569,7 +604,7 @@ void DFS_optimize4_removeSTLstack(Graph& g, int start) { //7/14/2020 use static 
 		}
 	}//cout << "g.NumDiscover: " << g.NumDiscover << endl;
 }
-void DFS_optimize5_removeGraphStruct(int** Adjacency, int start,int numofVertex) { //7/15/2020 removeGraphStruct, other same as optimize4
+void DFS_optimize5_removeGraphStruct(int** Adjacency, int start,int numofVertex, bool report_nb_vertices_visited) { //7/15/2020 removeGraphStruct, other same as optimize4
 	int NumDiscover = 0;//////////use int* in mutil thread or use 
 	for (int i = start; i < numofVertex; i++)
 	{
@@ -579,14 +614,93 @@ void DFS_optimize5_removeGraphStruct(int** Adjacency, int start,int numofVertex)
 		}
 		if (NumDiscover >= numofVertex)
 		{
+			if (report_nb_vertices_visited)
+				cout << "DFS_optimize5_removeGraphStruct NumDiscover: " << NumDiscover << endl;
+			return;
+		}
+	}
+	if (report_nb_vertices_visited)
+		cout << "DFS_optimize5_removeGraphStruct NumDiscover: " << NumDiscover << endl;
+}
+void DFS_optimize5_1_removeGraphStruct(int** Adjacency, int* colormap, int start, int numofVertex) { //7/15/2020 removeGraphStruct, other same as optimize4
+	int NumDiscover = 0;//////////use int* in mutil thread or use 
+	for (int i = start; i < numofVertex; i++)
+	{
+		if (Adjacency[i][0] == White)
+		{
+			DFS_visit_removeGraph_colormap(Adjacency, colormap, i, NumDiscover);//int* colormap
+		}
+		if (NumDiscover >= numofVertex)
+		{
 			return;
 		}
 	}//cout << "g.NumDiscover: " << g.NumDiscover << endl;
 }
 
 
+template <class Value>
+Value* mynew_array(size_t nb)
+{
+	Value* res = (Value*)malloc(size_t(sizeof(Value)) * nb);
+	if (res == NULL)
+		cout << "mynew_array returned NULL";
+	return res;
+}
+template <class Number, class Size>
+void fill_array_seq(Number* array, Size sz, Number val)
+{
+	memset(array, val, sz * sizeof(Number));
+	// for (Size i = Size(0); i < sz; i++)
+	//   array[i] = val;
+}
+static inline void myfree(void* p) {
+	free(p);
+}
+
+int* dfs_by_vertexid_array(int** Adjacency, int start, int numofVertex ,bool report_nb_vertices_visited)
+{
+	long nb_vertices_visited = 1;
+	typedef int vtxid_type;
+	int* visited;
+	vtxid_type nb_vertices = numofVertex;
+	auto source = start;
+	visited = mynew_array<int>(nb_vertices);
+	fill_array_seq(visited, nb_vertices, 0); // init all color as 0, means unvisited
+	cout << "finish init! ALGO_PHASE:\n";
+	vtxid_type* frontier = mynew_array<vtxid_type>(nb_vertices);
+	vtxid_type frontier_size = 0;
+	frontier[frontier_size++] = source;
+	visited[source] = 1;
+
+	while (frontier_size > 0)
+	{
+		vtxid_type vertex = frontier[--frontier_size];
+		vtxid_type degree = Adjacency[vertex][1];
+		// vtxid_type *neighbors = graph.adjlists[vertex].get_out_neighbors();
+		// cout<<"\nat: "<<vertex<<" degree"<<degree<<" visit: ";
+
+		for (vtxid_type edge = 2; edge < degree + 2; edge++)
+		{
+			// cout<<Adjacency[vertex][edge]<<" ";
+			vtxid_type other = Adjacency[vertex][edge];
+			if (visited[other])
+				continue;
+			if (report_nb_vertices_visited)
+				(nb_vertices_visited)++;
+			visited[other] = 1;
+			frontier[frontier_size++] = other;
+		}
+
+	}
+	if (report_nb_vertices_visited)
+		cout<<"dfs_by_vertexid_array nb_vertices_visited£º "<< nb_vertices_visited<<endl;
+	myfree(frontier);
+	return visited;
+}
+
+
 //put current visiting state of graph color info in to a bit map to save memeory
-void colorBitmap(Graph g, bitset<bitMapSize> color_bit) {
+void colorBitmap(Graph& g, bitset<bitMapSize> color_bit) {
 	cout << "colorBitmap...";
 	g.NumDiscover = 0;
 	for (int i = 0; i < g.nVertexs; i++)
@@ -595,9 +709,7 @@ void colorBitmap(Graph g, bitset<bitMapSize> color_bit) {
 		//cout << "initialize_vertex: " << curr_vertex.value << " color: " << curr_vertex.color << " has " << curr_vertex.neighbors.size() << "\n";
 	}
 	cout << "finish\n";
-
 }
-
 
 void printlist(int* a, int size) {
 	for (int i = 0; i < size; i++)
@@ -633,11 +745,7 @@ void CreateAdjacency( int** Adjacency, int numofVertex, Graph g) {
 	cout << "finish\n";
 }
 
-
-int main(int argc, char *argv[])  
-{
-    const char* filename = (argv[1]);
-    // int threads = atoi(argv[2]);
+int main() {
 	register std::bitset<bitMapSize> color_bit;
 	color_bit.reset();
 	//std::bitset<1000> foo(std::string("1011"));
@@ -650,25 +758,40 @@ int main(int argc, char *argv[])
 	auto duration = duration_cast<milliseconds>(stop - start);
 
 
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 	int threads = 2;
-	// const char* filename = "com-orkut.ungraph.txt";
-	cout << " filename " << filename;
-	Graph g = load_graph(filename); //
-	// email-Eu-core.txt  toy.dat test-1024.txt Wiki-Vote.txt test-5.5kEdges.txt   p2p-Gnutella31.txt
-	// toy_DCG.dat  com-orkut.ungraph.txt
+	bool isDirG = false;// direct graph 
+	bool report_nb_vertices_visited = true; // cout<<nb_vertices_visited
+	int source = 0 ;
+	const char* filename = "com-lj.ungraph.txt";
+	cout << threads << " threads " << filename;
+	Graph g = load_graph(filename,isDirG); //
+	// email-Eu-core.txt  toy.dat test-1024.txt Wiki-Vote.txt test-5.5kEdges.txt   p2p-Gnutella31.txt  com-lj.ungraph.txt
+	// toy_DCG.dat  Email-EuAll.txt Amazon0302.txt Amazon0601.txt com-orkut.ungraph.txt 1
+
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 	initialize_vertex(g);
 	int numofVertex = g.nVertexs;
 	int** Adjacency = new int* [numofVertex];
 	CreateAdjacency(Adjacency, numofVertex, g);
+	//for (int i = 0; i < 10; i++)
+	//{
+	//	for (int j = 0; j < Adjacency[i][1] + 2; j++)
+	//	{
+	//		cout << Adjacency[i][j] << " ";
+	//	}
+	//	cout << endl;
+	//}
 	start = high_resolution_clock::now();
-	//////////////////////////////////
-	DFS_optimize5_removeGraphStruct(Adjacency, 0, numofVertex);
+	DFS_optimize5_removeGraphStruct(Adjacency, source, numofVertex, report_nb_vertices_visited);
 	//////////////////////////////////
 	stop = high_resolution_clock::now();
 	duration = duration_cast<milliseconds>(stop - start);
@@ -676,43 +799,91 @@ int main(int argc, char *argv[])
 
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	// initialize_vertex(g); // set all color as 0, sources as -1
-	// start = high_resolution_clock::now();
-	// //////////////////////////////////////'
-	// DFS_optimize3_bitmap(g, 0, color_bit);
-
-	// //////////////////////////////////
-	// stop = high_resolution_clock::now();
-	// duration = duration_cast<milliseconds>(stop - start);
-	// std::cout << "\n DFS_optimize3_bitmap  serial time spends (ms): " << duration.count() << endl;
-
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-	initialize_vertex(g); // set all color as 0, sources as -1
-	start = high_resolution_clock::now();
-	//////////////////////////////////////'
-	DFS_optimize2(g, 0);
-
-	//////////////////////////////////
-	stop = high_resolution_clock::now();
-	duration = duration_cast<milliseconds>(stop - start);
-	std::cout << "\n nDFS_optimize2  serial time spends (ms): " << duration.count() << endl;
-
+		
 	initialize_vertex(g);
+	 numofVertex = g.nVertexs;
+	 Adjacency = new int* [numofVertex];
+	int* colormap = new int[numofVertex] { 0 };    //   [0,0,0,0,0...]
+	CreateAdjacency(Adjacency, numofVertex, g);
+
+
+	//////////////++++++++++++++ SC15:
+
 	start = high_resolution_clock::now();
-	//////////////////////////////////////'
-	DFS(g, 0);
-	//////////////////////////////////
+	///////////
+	int* visit = dfs_by_vertexid_array(Adjacency, source, numofVertex, report_nb_vertices_visited);
+	// printlist(visit, numofVertex);
+	///////////
 	stop = high_resolution_clock::now();
 	duration = duration_cast<milliseconds>(stop - start);
-	std::cout << "\n serial time spends (ms): " << duration.count() << endl;
+	std::cout << "SC15 dfs_by_vertexid_array time spends (ms): " << duration.count() << endl;
+	//////////////++++++++++++++ SC15:
 
-	
-	
-	
+
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////// bitmap is usless
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	//start = high_resolution_clock::now();
+
+	//DFS_optimize5_1_removeGraphStruct(Adjacency,colormap, 0, numofVertex);
+	////////////////////////////////////
+	//stop = high_resolution_clock::now();
+	//duration = duration_cast<milliseconds>(stop - start);
+	//std::cout << "\n DFS_optimize5_1_removeGraphStruct time spends (ms): " << duration.count() << endl;
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+	//initialize_vertex(g);
+	//start = high_resolution_clock::now();
+	////////////////////////////////////////'
+	//DFS_optimize4_removeSTLstack(g, 0);
+	////////////////////////////////////
+	//stop = high_resolution_clock::now();
+	//duration = duration_cast<milliseconds>(stop - start);
+	//std::cout << "\n DFS_optimize4_removeSTLstack time spends (ms): " << duration.count() << endl;
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	//initialize_vertex(g); // set all color as 0, sources as -1
+	//start = high_resolution_clock::now();
+	////////////////////////////////////////'
+	//DFS_optimize3_bitmap(g, 0, color_bit);
+
+	////////////////////////////////////
+	//stop = high_resolution_clock::now();
+	//duration = duration_cast<milliseconds>(stop - start);
+	//std::cout << "\n DFS_optimize3_bitmap  serial time spends (ms): " << duration.count() << endl;
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+	//initialize_vertex(g); // set all color as 0, sources as -1
+	//start = high_resolution_clock::now();
+	////////////////////////////////////////'
+	//DFS_optimize2(g, 0);
+
+	////////////////////////////////////
+	//stop = high_resolution_clock::now();
+	//duration = duration_cast<milliseconds>(stop - start);
+	//std::cout << "\n nDFS_optimize2  serial time spends (ms): " << duration.count() << endl;
+
+
+	//initialize_vertex(g);
+	//start = high_resolution_clock::now();
+	////////////////////////////////////////'
+	//DFS(g, 0);
+	////////////////////////////////////
+	//stop = high_resolution_clock::now();
+	//duration = duration_cast<milliseconds>(stop - start);
+	//std::cout << "\serial time spends (ms): " << duration.count() << endl;
+
+
 	
 	return 0;
 }
